@@ -12,7 +12,7 @@ import (
 
 // Syncer 用于从单个 peer 拉取区块和交易池
 type Syncer struct {
-	Peer   string            // 例如 http://127.0.0.1:8081
+	Peer   string // 例如 http://127.0.0.1:8081
 	Client *http.Client
 }
 
@@ -36,16 +36,19 @@ func (s *Syncer) SyncBlocks(store *storage.FileStorage) error {
 	if err != nil {
 		return err
 	}
-	var localTip uint64
-	if len(localHeights) > 0 {
-		localTip = localHeights[len(localHeights)-1]
+	// 若本地为空，则从 0 开始拉取（含创世）
+	var start uint64
+	if len(localHeights) == 0 {
+		start = 0
+	} else {
+		start = localHeights[len(localHeights)-1] + 1
 	}
 
-	if status.Height <= localTip {
+	if status.Height+1 <= start {
 		return nil // 无需同步
 	}
 
-	for h := localTip + 1; h <= status.Height; h++ {
+	for h := start; h <= status.Height; h++ {
 		block, err := s.fetchBlock(h)
 		if err != nil {
 			return fmt.Errorf("fetch block %d: %w", h, err)
@@ -122,4 +125,3 @@ func (s *Syncer) get(path string) (*http.Response, error) {
 	}
 	return resp, nil
 }
-

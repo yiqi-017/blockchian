@@ -1,0 +1,35 @@
+{
+  "Header": {
+    "Version": 1,
+    "PrevHash": "AAQtsofvTg8oh5rE4OZ9z8dZ8rr5sv9tew1DIULyRQY=",
+    "MerkleRoot": "783fITyImixRYeiWtMu6pSZWOdqx7vtm2twkOU3YTnw=",
+    "Timestamp": 1765811837,
+    "Difficulty": 8,
+    "Nonce": 92,
+    "Height": 1
+  },
+  "Transactions": [
+    {
+      "ID": null,
+      "Inputs": null,
+      "Outputs": [
+        {
+          "Value": 50,
+          "ScriptPubKey": "miner1"
+        }
+      ],
+      "IsCoinbase": true
+    },
+    {
+      "ID": null,
+      "Inputs": null,
+      "Outputs": [
+        {
+          "Value": 12,
+          "ScriptPubKey": "alice"
+        }
+      ],
+      "IsCoinbase": false
+    }
+  ]
+}
