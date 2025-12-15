@@ -31,8 +31,24 @@ func (p *TxPool) Pending() []*Transaction {
 	return txs
 }
 
+// Snapshot 返回交易池 map 的浅拷贝，便于序列化存储
+func (p *TxPool) Snapshot() map[string]*Transaction {
+	copyMap := make(map[string]*Transaction, len(p.pool))
+	for id, tx := range p.pool {
+		copyMap[id] = tx
+	}
+	return copyMap
+}
+
+// LoadSnapshot 用外部提供的 map 覆盖当前池
+func (p *TxPool) LoadSnapshot(entries map[string]*Transaction) {
+	p.pool = make(map[string]*Transaction, len(entries))
+	for id, tx := range entries {
+		p.pool[id] = tx
+	}
+}
+
 // Size 返回交易池大小
 func (p *TxPool) Size() int {
 	return len(p.pool)
 }
-
