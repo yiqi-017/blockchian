@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 
@@ -22,53 +23,66 @@ import (
 //	go run ./cmd/node -mode mine -node node1 -miner bob -difficulty 12
 //	go run ./cmd/node -mode serve -node node1 -addr :8080 -peers http://127.0.0.1:8081,http://127.0.0.1:8082
 func main() {
-	mode := flag.String("mode", "init", "init | tx | mine | serve")
-	nodeID := flag.String("node", "node1", "节点标识，用于隔离数据目录")
-	dataDir := flag.String("data", "./data", "数据目录")
-	miner := flag.String("miner", "miner", "挖矿奖励接收者（coinbase 输出脚本）")
-	to := flag.String("to", "", "交易接收者脚本（用于 mode=tx）")
-	walletPath := flag.String("wallet", "", "钱包文件路径（mode=tx 使用，默认 data/<node>/wallet.json）")
-	value := flag.Int64("value", 10, "交易金额（用于 mode=tx）")
-	difficulty := flag.Uint("difficulty", 12, "POW 难度（前导零位数）")
-	addr := flag.String("addr", ":8080", "HTTP 监听地址（mode=serve）")
-	peersStr := flag.String("peers", "", "逗号分隔的 peer 列表（mode=serve）")
-	syncInterval := flag.Duration("sync-interval", 5*time.Second, "与 peers 同步间隔（mode=serve）")
-	flag.Parse()
+	if err := Run(os.Args[1:]); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// Run 解析参数并执行节点指令，便于测试复用
+func Run(args []string) error {
+	fs := flag.NewFlagSet("node", flag.ContinueOnError)
+
+	mode := fs.String("mode", "init", "init | tx | mine | serve")
+	nodeID := fs.String("node", "node1", "节点标识，用于隔离数据目录")
+	dataDir := fs.String("data", "./data", "数据目录")
+	miner := fs.String("miner", "miner", "挖矿奖励接收者（coinbase 输出脚本）")
+	to := fs.String("to", "", "交易接收者脚本（用于 mode=tx）")
+	walletPath := fs.String("wallet", "", "钱包文件路径（mode=tx 使用，默认 data/<node>/wallet.json）")
+	value := fs.Int64("value", 10, "交易金额（用于 mode=tx）")
+	difficulty := fs.Uint("difficulty", 12, "POW 难度（前导零位数）")
+	addr := fs.String("addr", ":8080", "HTTP 监听地址（mode=serve）")
+	peersStr := fs.String("peers", "", "逗号分隔的 peer 列表（mode=serve）")
+	syncInterval := fs.Duration("sync-interval", 5*time.Second, "与 peers 同步间隔（mode=serve）")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	rand.Seed(time.Now().UnixNano())
 
 	store, err := storage.NewFileStorage(*dataDir, *nodeID)
 	if err != nil {
-		log.Fatalf("init storage failed: %v", err)
+		return fmt.Errorf("init storage failed: %w", err)
 	}
 
 	switch *mode {
 	case "init":
 		if err := initChain(store, *miner, uint32(*difficulty)); err != nil {
-			log.Fatalf("init chain failed: %v", err)
+			return fmt.Errorf("init chain failed: %w", err)
 		}
 	case "tx":
 		if *to == "" {
-			log.Fatal("mode=tx 需要指定 -to")
+			return fmt.Errorf("mode=tx 需要指定 -to")
 		}
 		if *walletPath == "" {
 			*walletPath = defaultWalletPath(*dataDir, *nodeID)
 		}
 		if err := submitTx(store, *walletPath, *to, *value); err != nil {
-			log.Fatalf("submit tx failed: %v", err)
+			return fmt.Errorf("submit tx failed: %w", err)
 		}
 	case "mine":
 		if err := mineOnce(store, *miner, uint32(*difficulty)); err != nil {
-			log.Fatalf("mine failed: %v", err)
+			return fmt.Errorf("mine failed: %w", err)
 		}
 	case "serve":
 		peers := parsePeers(*peersStr)
 		if err := serveNode(*nodeID, store, *addr, peers, *syncInterval); err != nil {
-			log.Fatalf("serve failed: %v", err)
+			return fmt.Errorf("serve failed: %w", err)
 		}
 	default:
-		log.Fatalf("unknown mode: %s", *mode)
+		return fmt.Errorf("unknown mode: %s", *mode)
 	}
+	return nil
 }
 
 // initChain 创建创世块并保存，若已存在区块则跳过
