@@ -1,0 +1,3 @@
+2025/12/16 00:29:03 dashboard listening on :4000, peers=[http://127.0.0.1:8080 http://127.0.0.1:8081 http://127.0.0.1:8082]
+2025/12/16 00:29:03 listen tcp :4000: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+exit status 1

@@ -1,0 +1,6 @@
+ WARN  Checking for updates failed (use `--debug` to see full error)
+ INFO  Accepting connections at http://localhost:3000
+ HTTP  2025/12/16 00:19:53 127.0.0.1 GET /
+ HTTP  2025/12/16 00:19:53 127.0.0.1 Returned 200 in 98 ms
+ HTTP  2025/12/16 00:26:09 127.0.0.1 GET /
+ HTTP  2025/12/16 00:26:09 127.0.0.1 Returned 304 in 73 ms

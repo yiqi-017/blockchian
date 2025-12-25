@@ -1,0 +1,3 @@
+2025/12/16 00:19:20 P2P HTTP server listening on :8082
+2025/12/16 00:19:20 serve failed: listen tcp :8082: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+exit status 1

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blockchain Dashboard</title>
+  <!-- Tailwind CDN（开发演示足够，生产可自行构建） -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; }
+    .card { background: #111827; border: 1px solid #1f2937; }
+    .badge { background: #1f2937; color: #cbd5f5; border-radius: 9999px; padding: 0 10px; }
+    input, select, textarea { color: #e2e8f0; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold text-white">Blockchain Dashboard</h1>
+        <p class="text-slate-400 text-sm">监控多节点状态，提交交易，触发挖矿</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-slate-400">API 基址</label>
+        <input id="apiBase" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm w-48" value="http://127.0.0.1:4000" />
+        <button id="refreshBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded text-sm">刷新</button>
+      </div>
+    </header>
+
+    <section class="grid md:grid-cols-3 gap-4 mb-6" id="statusGrid">
+      <!-- 节点状态卡片 -->
+    </section>
+
+    <section class="grid md:grid-cols-2 gap-4 mb-6">
+      <div class="card p-4 rounded">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-white">最新区块</h2>
+          <select id="peerSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm"></select>
+        </div>
+        <pre id="blockView" class="text-xs bg-slate-900 border border-slate-800 rounded p-3 overflow-auto h-64"></pre>
+      </div>
+      <div class="card p-4 rounded">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-white">交易池</h2>
+          <button id="loadTxPoolBtn" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-sm">刷新</button>
+        </div>
+        <pre id="txPoolView" class="text-xs bg-slate-900 border border-slate-800 rounded p-3 overflow-auto h-64"></pre>
+      </div>
+    </section>
+
+    <section class="grid md:grid-cols-2 gap-4">
+      <div class="card p-4 rounded">
+        <h2 class="text-lg font-semibold text-white mb-3">提交交易</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">目标节点</label>
+            <select id="txPeer" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm"></select>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">接收方 (to)</label>
+            <input id="txTo" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm" placeholder="alice" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">金额 (value)</label>
+            <input id="txValue" type="number" min="1" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm" value="12" />
+          </div>
+          <button id="txSubmit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded text-sm w-full">发送交易</button>
+          <div id="txMsg" class="text-xs text-slate-400"></div>
+        </div>
+      </div>
+
+      <div class="card p-4 rounded">
+        <h2 class="text-lg font-semibold text-white mb-3">挖矿</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">目标节点</label>
+            <select id="minePeer" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm"></select>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">矿工地址 (miner)</label>
+            <input id="minerAddr" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm" value="miner1" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm text-slate-400 mb-1">难度 (bits)</label>
+              <input id="mineDiff" type="number" min="1" max="32" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm" value="8" />
+            </div>
+            <div>
+              <label class="block text-sm text-slate-400 mb-1">奖励 (reward)</label>
+              <input id="mineReward" type="number" min="1" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm" value="50" />
+            </div>
+          </div>
+          <button id="mineSubmit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded text-sm w-full">开始挖矿</button>
+          <div id="mineMsg" class="text-xs text-slate-400"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const statusGrid = document.getElementById('statusGrid');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const apiBaseInput = document.getElementById('apiBase');
+    const peerSelect = document.getElementById('peerSelect');
+    const blockView = document.getElementById('blockView');
+    const txPoolView = document.getElementById('txPoolView');
+    const loadTxPoolBtn = document.getElementById('loadTxPoolBtn');
+    const txPeer = document.getElementById('txPeer');
+    const txTo = document.getElementById('txTo');
+    const txValue = document.getElementById('txValue');
+    const txSubmit = document.getElementById('txSubmit');
+    const txMsg = document.getElementById('txMsg');
+    const minePeer = document.getElementById('minePeer');
+    const minerAddr = document.getElementById('minerAddr');
+    const mineDiff = document.getElementById('mineDiff');
+    const mineReward = document.getElementById('mineReward');
+    const mineSubmit = document.getElementById('mineSubmit');
+    const mineMsg = document.getElementById('mineMsg');
+
+    let peersCache = [];
+
+    async function fetchJSON(url, opts = {}) {
+      const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      return res.json();
+    }
+
+    function setPeers(peers) {
+      peersCache = peers;
+      [peerSelect, txPeer, minePeer].forEach(sel => {
+        sel.innerHTML = '';
+        peers.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = p;
+          sel.appendChild(opt);
+        });
+      });
+    }
+
+    function renderStatus(statuses) {
+      statusGrid.innerHTML = '';
+      statuses.forEach(item => {
+        const { peer, status, error } = item;
+        const h = status ? status.height : '-';
+        const ok = !error;
+        const card = document.createElement('div');
+        card.className = 'card p-4 rounded';
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-white font-semibold">${peer}</div>
+            <span class="badge ${ok ? 'text-emerald-300' : 'text-rose-300'}">${ok ? 'OK' : 'ERR'}</span>
+          </div>
+          <div class="text-sm text-slate-300">高度：${h}</div>
+          ${error ? `<div class="text-xs text-rose-300 mt-2">${error}</div>` : ''}
+        `;
+        statusGrid.appendChild(card);
+      });
+    }
+
+    async function loadStatus() {
+      const base = apiBaseInput.value.trim();
+      try {
+        const data = await fetchJSON(`${base}/api/status`);
+        renderStatus(data);
+        const validPeers = data.filter(x => !x.error).map(x => x.peer);
+        if (validPeers.length) setPeers(validPeers);
+        if (validPeers.length) {
+          peerSelect.value = validPeers[0];
+          txPeer.value = validPeers[0];
+          minePeer.value = validPeers[0];
+          await loadBlock();
+          await loadTxPool();
+        }
+      } catch (e) {
+        statusGrid.innerHTML = `<div class="text-rose-300 text-sm">加载失败：${e.message}</div>`;
+      }
+    }
+
+    async function loadBlock() {
+      const base = apiBaseInput.value.trim();
+      const peer = peerSelect.value;
+      if (!peer) return;
+      blockView.textContent = '加载中...';
+      try {
+        const data = await fetchJSON(`${base}/api/block/latest?peer=${encodeURIComponent(peer)}`);
+        blockView.textContent = JSON.stringify(data.block, null, 2);
+      } catch (e) {
+        blockView.textContent = `加载失败：${e.message}`;
+      }
+    }
+
+    async function loadTxPool() {
+      const base = apiBaseInput.value.trim();
+      const peer = peerSelect.value;
+      if (!peer) return;
+      txPoolView.textContent = '加载中...';
+      try {
+        const data = await fetchJSON(`${base}/api/txpool?peer=${encodeURIComponent(peer)}`);
+        txPoolView.textContent = JSON.stringify(data.txpool, null, 2);
+      } catch (e) {
+        txPoolView.textContent = `加载失败：${e.message}`;
+      }
+    }
+
+    async function submitTx() {
+      const base = apiBaseInput.value.trim();
+      txMsg.textContent = '';
+      try {
+        const payload = {
+          peer: txPeer.value,
+          to: txTo.value.trim(),
+          value: Number(txValue.value)
+        };
+        const res = await fetchJSON(`${base}/api/tx`, { method: 'POST', body: JSON.stringify(payload) });
+        txMsg.textContent = `成功：${JSON.stringify(res)}`;
+        await loadTxPool();
+      } catch (e) {
+        txMsg.textContent = `失败：${e.message}`;
+      }
+    }
+
+    async function submitMine() {
+      const base = apiBaseInput.value.trim();
+      mineMsg.textContent = '';
+      try {
+        const payload = {
+          peer: minePeer.value,
+          miner: minerAddr.value.trim(),
+          difficulty: Number(mineDiff.value),
+          reward: Number(mineReward.value)
+        };
+        const res = await fetchJSON(`${base}/api/mine`, { method: 'POST', body: JSON.stringify(payload) });
+        mineMsg.textContent = `成功：${JSON.stringify(res)}`;
+        await loadBlock();
+        await loadTxPool();
+        await loadStatus();
+      } catch (e) {
+        mineMsg.textContent = `失败：${e.message}`;
+      }
+    }
+
+    refreshBtn.onclick = () => loadStatus();
+    peerSelect.onchange = () => { loadBlock(); loadTxPool(); };
+    loadTxPoolBtn.onclick = () => loadTxPool();
+    txSubmit.onclick = submitTx;
+    mineSubmit.onclick = submitMine;
+
+    loadStatus();
+  </script>
+</body>
+</html>
+
