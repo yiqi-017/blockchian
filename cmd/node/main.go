@@ -199,6 +199,7 @@ func serveNode(nodeID string, store *storage.FileStorage, addr string, peers []s
 		NodeID: nodeID,
 		Store:  store,
 		Addr:   addr,
+		Peers:  peers,
 	}
 
 	// 后台同步循环

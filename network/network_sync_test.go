@@ -80,6 +80,7 @@ func startNodeServerSimple(t *testing.T, store *storage.FileStorage) *httptest.S
 	mux.HandleFunc("/status", ns.handleStatus)
 	mux.HandleFunc("/block", ns.handleBlock)
 	mux.HandleFunc("/txpool", ns.handleTxPool)
+	mux.HandleFunc("/tx", ns.handleSubmitTx)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(func() { srv.Close() })
 	return srv

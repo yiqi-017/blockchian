@@ -25,7 +25,7 @@ func TestPruneTxPool(t *testing.T) {
 	}
 
 	// 构造包含该交易的区块并落盘
-	block := core.MineBlock(nil, []*core.Transaction{core.NewCoinbaseTx("miner", 50), tx}, 4)
+	block := core.MineBlock(nil, []*core.Transaction{core.NewCoinbaseTx("miner", 50), tx}, 0)
 	if err := pruneTxPoolAndSave(store, block); err != nil {
 		t.Fatalf("save block: %v", err)
 	}

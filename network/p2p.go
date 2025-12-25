@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/yiqi-017/blockchain/core"
 	"github.com/yiqi-017/blockchain/storage"
@@ -17,6 +18,7 @@ type NodeServer struct {
 	NodeID string
 	Store  *storage.FileStorage
 	Addr   string // 监听地址，例 ":8080"
+	Peers  []string
 }
 
 // Start 启动 HTTP 服务（阻塞）
@@ -155,6 +157,11 @@ func (s *NodeServer) handleSubmitTx(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+
+	// 广播给 peers，防止风暴：若来自转发请求则不再转发
+	if r.Header.Get("X-No-Relay") == "" {
+		s.broadcastTx(&tx)
+	}
 }
 
 // latestHeight 获取本地区块最高高度，若无区块返回 0
@@ -209,6 +216,12 @@ func validateAndPersistBlock(store *storage.FileStorage, block *core.Block) erro
 		if len(block.Header.PrevHash) != 0 {
 			return fmt.Errorf("genesis prev hash must be empty")
 		}
+	}
+
+	now := time.Now().Unix()
+	const maxFutureDrift = int64(120) // 2 分钟容忍
+	if block.Header.Timestamp > now+maxFutureDrift {
+		return fmt.Errorf("block timestamp too far in future")
 	}
 
 	merkle := core.ComputeMerkleRoot(block.Transactions)
@@ -324,4 +337,27 @@ func pruneTxPool(store *storage.FileStorage, txs []*core.Transaction) {
 	}
 	pool.RemoveMany(toRemove)
 	_ = store.SaveTxPool(pool)
+}
+
+// broadcastTx 将交易推送到 peers 的 /tx 接口
+func (s *NodeServer) broadcastTx(tx *core.Transaction) {
+	if tx == nil || len(s.Peers) == 0 {
+		return
+	}
+	body, err := json.Marshal(tx)
+	if err != nil {
+		return
+	}
+	for _, peer := range s.Peers {
+		req, err := http.NewRequest(http.MethodPost, peer+"/tx", bytes.NewReader(body))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-No-Relay", "1")
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil {
+			resp.Body.Close()
+		}
+	}
 }

@@ -79,6 +79,15 @@ func (s *Syncer) reorgFromPeer(store *storage.FileStorage, peerTip uint64) error
 		return fmt.Errorf("peer conflict but not longer chain")
 	}
 
+	var genesisHash []byte
+	if len(localHeights) > 0 {
+		g, err := store.LoadBlock(0)
+		if err != nil {
+			return err
+		}
+		genesisHash = core.HashBlockHeader(&g.Header)
+	}
+
 	blocks := make([]*core.Block, 0, peerTip+1)
 	for h := uint64(0); h <= peerTip; h++ {
 		b, err := s.fetchBlockInternal(h)
@@ -87,7 +96,7 @@ func (s *Syncer) reorgFromPeer(store *storage.FileStorage, peerTip uint64) error
 		}
 		blocks = append(blocks, b)
 	}
-	if err := validateChain(blocks); err != nil {
+	if err := validateChainWithGenesis(blocks, genesisHash); err != nil {
 		return fmt.Errorf("peer chain invalid: %w", err)
 	}
 	if err := store.ClearBlocks(); err != nil {
@@ -101,8 +110,8 @@ func (s *Syncer) reorgFromPeer(store *storage.FileStorage, peerTip uint64) error
 	return nil
 }
 
-// validateChain 校验链的连续性、Merkle 和 POW（不做交易验签以简化）
-func validateChain(blocks []*core.Block) error {
+// validateChainWithGenesis 校验链的连续性、Merkle 和 POW，并在提供时校验创世哈希
+func validateChainWithGenesis(blocks []*core.Block, expectGenesis []byte) error {
 	var prevHash []byte
 	for i, b := range blocks {
 		if b == nil {
@@ -114,6 +123,11 @@ func validateChain(blocks []*core.Block) error {
 		if i == 0 {
 			if len(b.Header.PrevHash) != 0 {
 				return fmt.Errorf("genesis prev hash not empty")
+			}
+			if len(expectGenesis) > 0 {
+				if !bytes.Equal(core.HashBlockHeader(&b.Header), expectGenesis) {
+					return fmt.Errorf("genesis hash mismatch")
+				}
 			}
 		} else {
 			if !bytes.Equal(prevHash, b.Header.PrevHash) {
