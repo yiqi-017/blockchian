@@ -1,10 +1,6 @@
 package core
 
-import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/binary"
-)
+import "crypto/sha256"
 
 // ComputeMerkleRoot 依据交易列表计算 Merkle 根；若为空返回 nil
 func ComputeMerkleRoot(txs []*Transaction) []byte {
@@ -54,10 +50,4 @@ func hashPair(left, right []byte) []byte {
 	combined := append(left, right...)
 	sum := sha256.Sum256(combined)
 	return sum[:]
-}
-
-func writeInt(buf *bytes.Buffer, v int64) {
-	var b [8]byte
-	binary.LittleEndian.PutUint64(b[:], uint64(v))
-	buf.Write(b[:])
 }
