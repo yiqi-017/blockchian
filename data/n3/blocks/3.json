@@ -1,28 +1,26 @@
 {
-  "entries": {
-    "08db4e9df62c4f22f952bda83e2dd5ba07fcf57a56756f2898dca48e4ad71809": {
-      "ID": "CNtOnfYsTyL5Ur2oPi3Vugf89XpWdW8omNykjkrXGAk=",
+  "Header": {
+    "Version": 1,
+    "PrevHash": "AAuEPT03pBr14NmbE1SYpsi46JECI0qFaYs7JCz+xug=",
+    "MerkleRoot": "TjKQMi7Dh2/Am1lbneswj/ppG3chTlI2hFoPGFEi3CQ=",
+    "Timestamp": 1766672666,
+    "Difficulty": 12,
+    "Nonce": 3902,
+    "Height": 3
+  },
+  "Transactions": [
+    {
+      "ID": null,
       "Inputs": null,
       "Outputs": [
         {
-          "Value": 3,
-          "ScriptPubKey": "bob"
+          "Value": 50,
+          "ScriptPubKey": "2c2d9ffe9d106c4e42f86a9c6af5e66c07c64ccd6034cec4f32a52bc70c179e163b90f44cc83a9612a58a68092b91fd9ee374d34cd681af882c0e5bc24012b08"
         }
       ],
       "IsCoinbase": true
     },
-    "9f542a2719f3ce35405dcc3746d0478b9ade48675ffc7bb83e68657ea14d88f0": {
-      "ID": "n1QqJxnzzjVAXcw3RtBHi5reSGdf/Hu4PmhlfqFNiPA=",
-      "Inputs": null,
-      "Outputs": [
-        {
-          "Value": 5,
-          "ScriptPubKey": "alice"
-        }
-      ],
-      "IsCoinbase": true
-    },
-    "bcb5fd969b36ccfe7fae0250995dc3a0ad54499552a39b65ceddc46438ec977f": {
+    {
       "ID": "vLX9lps2zP5/rgJQmV3DoK1USZVSo5tlzt3EZDjsl38=",
       "Inputs": [
         {
@@ -43,6 +41,17 @@
         }
       ],
       "IsCoinbase": false
+    },
+    {
+      "ID": "n1QqJxnzzjVAXcw3RtBHi5reSGdf/Hu4PmhlfqFNiPA=",
+      "Inputs": null,
+      "Outputs": [
+        {
+          "Value": 5,
+          "ScriptPubKey": "alice"
+        }
+      ],
+      "IsCoinbase": true
     }
-  }
+  ]
 }

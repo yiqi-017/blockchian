@@ -12,10 +12,13 @@
 ```powershell
 # 创世
 go run ./cmd/node -mode init -node n1
+# 打印钱包地址（公钥 hex，作为 miner/收款脚本）
+# Windows 下可用 go run 的单文件命令：
+go run ./scripts/addr.go -wallet data/n1/wallet.json
 # 提交交易（自动生成/加载钱包 data/n1/wallet.json）
 go run ./cmd/node -mode tx -node n1 -to alice -value 5
-# 挖块（包含交易 + coinbase）
-go run ./cmd/node -mode mine -node n1 -miner miner1 -difficulty 12
+# 挖块（包含交易 + coinbase），miner 请填上面打印的地址
+go run ./cmd/node -mode mine -node n1 -miner <你的地址> -difficulty 12
 ```
 验证点：
 - `data/n1/blocks/1.json` 出现新区块，`txpool/pool.json` 归零。
@@ -40,10 +43,14 @@ go run ./cmd/node -mode init -node n1
 go run ./cmd/node -mode init -node n2
 go run ./cmd/node -mode init -node n3
 
-# 向 n1 提交交易
-curl -X POST http://127.0.0.1:8080/tx `
-  -H "Content-Type: application/json" `
-  -d '{"outputs":[{"value":5,"scriptpubkey":"alice"}],"iscoinbase":true}'
+# 向 n1 提交交易（PowerShell 用 Invoke-WebRequest）
+$body = '{"outputs":[{"value":5,"scriptpubkey":"alice"}],"iscoinbase":true}'
+Invoke-WebRequest -Uri "http://127.0.0.1:8080/tx" `
+  -Method Post `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body $body
+# 或用 curl.exe
+# curl.exe -X POST http://127.0.0.1:8080/tx -H "Content-Type: application/json" -d $body
 
 # 在 n2 挖块
 go run ./cmd/node -mode mine -node n2 -miner miner2 -difficulty 12
@@ -69,9 +76,13 @@ curl "http://127.0.0.1:8080/balance?addr=alice"
 ### 4. 交易广播（无丢失）验证
 在三节点 serve 运行时，仅向节点 A 提交交易：
 ```powershell
-curl -X POST http://127.0.0.1:8080/tx `
-  -H "Content-Type: application/json" `
-  -d '{"outputs":[{"value":3,"scriptpubkey":"bob"}],"iscoinbase":true}'
+$body2 = '{"outputs":[{"value":3,"scriptpubkey":"bob"}],"iscoinbase":true}'
+Invoke-WebRequest -Uri "http://127.0.0.1:8080/tx" `
+  -Method Post `
+  -Headers @{ "Content-Type" = "application/json" } `
+  -Body $body2
+# 或用 curl.exe：
+# curl.exe -X POST http://127.0.0.1:8080/tx -H "Content-Type: application/json" -d $body2
 ```
 然后在节点 B/C 查看交易池：
 ```powershell
