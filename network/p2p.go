@@ -1,7 +1,9 @@
 package network
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -24,6 +26,7 @@ func (s *NodeServer) Start() error {
 	mux.HandleFunc("/status", s.handleStatus)
 	mux.HandleFunc("/block", s.handleBlock)
 	mux.HandleFunc("/txpool", s.handleTxPool)
+	mux.HandleFunc("/tx", s.handleSubmitTx)
 
 	log.Printf("P2P HTTP server listening on %s", s.Addr)
 	return http.ListenAndServe(s.Addr, mux)
@@ -74,8 +77,8 @@ func (s *NodeServer) handleBlock(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "block is nil", http.StatusBadRequest)
 			return
 		}
-		if err := s.Store.SaveBlock(payload.Block); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		if err := validateAndPersistBlock(s.Store, payload.Block); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -114,6 +117,46 @@ func (s *NodeServer) handleTxPool(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleSubmitTx 接收外部提交的简单交易并写入交易池
+func (s *NodeServer) handleSubmitTx(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var tx core.Transaction
+	if err := json.NewDecoder(r.Body).Decode(&tx); err != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+
+	blocks, err := loadAllBlocks(s.Store)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("load blocks: %v", err), http.StatusInternalServerError)
+		return
+	}
+	utxos := core.BuildUTXOSet(blocks)
+	if len(tx.ID) == 0 {
+		tx.ID = core.ComputeTxID(&tx)
+	}
+	if err := core.ValidateTransaction(&tx, utxos); err != nil {
+		http.Error(w, fmt.Sprintf("tx invalid: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	pool, err := s.Store.LoadTxPool()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	pool.Add(fmt.Sprintf("%x", tx.ID), &tx)
+	if err := s.Store.SaveTxPool(pool); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
 // latestHeight 获取本地区块最高高度，若无区块返回 0
 func latestHeight(store *storage.FileStorage) (uint64, error) {
 	heights, err := store.ListBlockHeights()
@@ -133,3 +176,119 @@ func writeJSON(w http.ResponseWriter, v any) {
 	}
 }
 
+// validateAndPersistBlock 对从网络收到的区块进行基本校验并落盘
+func validateAndPersistBlock(store *storage.FileStorage, block *core.Block) error {
+	if block == nil {
+		return fmt.Errorf("block is nil")
+	}
+
+	// 若已存在同高度的区块且哈希一致，视为重复接受
+	existing, err := store.LoadBlock(block.Header.Height)
+	if err == nil && existing != nil {
+		if bytes.Equal(core.HashBlockHeader(&existing.Header), core.HashBlockHeader(&block.Header)) {
+			return nil
+		}
+		return fmt.Errorf("conflict block at height %d", block.Header.Height)
+	}
+
+	var prev *core.Block
+	if block.Header.Height > 0 {
+		prev, err = store.LoadBlock(block.Header.Height - 1)
+		if err != nil {
+			return fmt.Errorf("missing prev block %d: %w", block.Header.Height-1, err)
+		}
+		expectedPrevHash := core.HashBlockHeader(&prev.Header)
+		if !bytes.Equal(expectedPrevHash, block.Header.PrevHash) {
+			return fmt.Errorf("prev hash mismatch at height %d", block.Header.Height)
+		}
+		if block.Header.Timestamp <= prev.Header.Timestamp {
+			return fmt.Errorf("block timestamp not increasing")
+		}
+	} else {
+		// 创世块要求 prev 为空
+		if len(block.Header.PrevHash) != 0 {
+			return fmt.Errorf("genesis prev hash must be empty")
+		}
+	}
+
+	merkle := core.ComputeMerkleRoot(block.Transactions)
+	if !bytes.Equal(merkle, block.Header.MerkleRoot) {
+		return fmt.Errorf("invalid merkle root")
+	}
+	if !core.ValidateBlockPOW(block) {
+		return fmt.Errorf("pow invalid")
+	}
+
+	// 校验交易（签名、余额）
+	existingBlocks, err := loadAllBlocks(store)
+	if err != nil {
+		return err
+	}
+	utxos := core.BuildUTXOSet(existingBlocks)
+	for _, tx := range block.Transactions {
+		if err := core.ValidateTransaction(tx, utxos); err != nil {
+			return fmt.Errorf("tx invalid: %w", err)
+		}
+		// 应用花费到 utxo 集以避免同块内双花
+		utxos = applyTxToUTXO(tx, utxos)
+	}
+
+	if err := store.SaveBlock(block); err != nil {
+		return err
+	}
+	// 收到新区块后清空本地交易池，避免重复打包
+	_ = store.SaveTxPool(core.NewTxPool())
+	return nil
+}
+
+// loadAllBlocks 按高度顺序加载全链
+func loadAllBlocks(store *storage.FileStorage) ([]*core.Block, error) {
+	heights, err := store.ListBlockHeights()
+	if err != nil {
+		return nil, err
+	}
+	var blocks []*core.Block
+	for _, h := range heights {
+		b, err := store.LoadBlock(h)
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, b)
+	}
+	return blocks, nil
+}
+
+// applyTxToUTXO 将交易对 utxo 集的消费和新增应用（用于同块内依赖）
+func applyTxToUTXO(tx *core.Transaction, utxos map[string][]core.UTXO) map[string][]core.UTXO {
+	if tx == nil {
+		return utxos
+	}
+	if !tx.IsCoinbase {
+		for _, in := range tx.Inputs {
+			key := fmt.Sprintf("%x", in.TxID)
+			list := utxos[key]
+			for i, u := range list {
+				if bytes.Equal(u.TxID, in.TxID) && u.Index == in.Vout {
+					// remove
+					list = append(list[:i], list[i+1:]...)
+					break
+				}
+			}
+			if len(list) == 0 {
+				delete(utxos, key)
+			} else {
+				utxos[key] = list
+			}
+		}
+	}
+	txID := core.ComputeTxID(tx)
+	key := fmt.Sprintf("%x", txID)
+	for idx, out := range tx.Outputs {
+		utxos[key] = append(utxos[key], core.UTXO{
+			TxID:   txID,
+			Index:  idx,
+			Output: out,
+		})
+	}
+	return utxos
+}

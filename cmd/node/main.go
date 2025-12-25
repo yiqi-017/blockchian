@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/yiqi-017/blockchain/core"
+	"github.com/yiqi-017/blockchain/crypto"
 	"github.com/yiqi-017/blockchain/network"
 	"github.com/yiqi-017/blockchain/storage"
 )
@@ -26,6 +27,7 @@ func main() {
 	dataDir := flag.String("data", "./data", "数据目录")
 	miner := flag.String("miner", "miner", "挖矿奖励接收者（coinbase 输出脚本）")
 	to := flag.String("to", "", "交易接收者脚本（用于 mode=tx）")
+	walletPath := flag.String("wallet", "", "钱包文件路径（mode=tx 使用，默认 data/<node>/wallet.json）")
 	value := flag.Int64("value", 10, "交易金额（用于 mode=tx）")
 	difficulty := flag.Uint("difficulty", 12, "POW 难度（前导零位数）")
 	addr := flag.String("addr", ":8080", "HTTP 监听地址（mode=serve）")
@@ -49,7 +51,10 @@ func main() {
 		if *to == "" {
 			log.Fatal("mode=tx 需要指定 -to")
 		}
-		if err := submitTx(store, *to, *value); err != nil {
+		if *walletPath == "" {
+			*walletPath = defaultWalletPath(*dataDir, *nodeID)
+		}
+		if err := submitTx(store, *walletPath, *to, *value); err != nil {
 			log.Fatalf("submit tx failed: %v", err)
 		}
 	case "mine":
@@ -91,8 +96,8 @@ func initChain(store *storage.FileStorage, miner string, difficulty uint32) erro
 	return nil
 }
 
-// submitTx 创建一笔简单交易并写入交易池
-func submitTx(store *storage.FileStorage, to string, value int64) error {
+// submitTx 创建一笔签名交易并写入交易池
+func submitTx(store *storage.FileStorage, walletPath string, to string, value int64) error {
 	tip, err := loadTip(store)
 	if err != nil {
 		return err
@@ -101,25 +106,30 @@ func submitTx(store *storage.FileStorage, to string, value int64) error {
 		return fmt.Errorf("链不存在，请先执行 -mode init")
 	}
 
-	pool, err := store.LoadTxPool()
+	wallet, err := storage.LoadOrCreateWallet(walletPath)
+	if err != nil {
+		return fmt.Errorf("load wallet failed: %w", err)
+	}
+
+	tx, err := buildSignedTx(store, wallet, to, value)
 	if err != nil {
 		return err
 	}
 
-	tx := &core.Transaction{
-		ID:         nil,
-		Inputs:     nil,
-		Outputs:    []core.TxOutput{{Value: value, ScriptPubKey: to}},
-		IsCoinbase: false,
+	txID := core.ComputeTxID(tx)
+	tx.ID = txID
+
+	pool, err := store.LoadTxPool()
+	if err != nil {
+		return err
 	}
-	txID := fmt.Sprintf("%d-%d", time.Now().UnixNano(), rand.Int())
-	pool.Add(txID, tx)
+	pool.Add(fmt.Sprintf("%x", txID), tx)
 
 	if err := store.SaveTxPool(pool); err != nil {
 		return err
 	}
 
-	log.Printf("交易已加入池：id=%s, to=%s, value=%d, 池大小=%d", txID, to, value, pool.Size())
+	log.Printf("交易已加入池：id=%x, to=%s, value=%d, 池大小=%d", txID, to, value, pool.Size())
 	return nil
 }
 
@@ -209,4 +219,91 @@ func parsePeers(raw string) []string {
 		}
 	}
 	return out
+}
+
+func defaultWalletPath(baseDir, nodeID string) string {
+	return fmt.Sprintf("%s/%s/wallet.json", strings.TrimRight(baseDir, "/"), nodeID)
+}
+
+// buildSignedTx 简单 UTXO 选择（全链扫描），签名并返回交易
+func buildSignedTx(store *storage.FileStorage, wallet *crypto.Wallet, to string, value int64) (*core.Transaction, error) {
+	if value <= 0 {
+		return nil, fmt.Errorf("value must be positive")
+	}
+	blocks, err := loadAllBlocks(store)
+	if err != nil {
+		return nil, err
+	}
+	utxoSet := core.BuildUTXOSet(blocks)
+	fromAddr := crypto.PublicKeyHex(wallet.PublicKey)
+
+	// 收集属于 from 的 UTXO
+	var selected []core.UTXO
+	var total int64
+	for _, list := range utxoSet {
+		for _, u := range list {
+			if u.Output.ScriptPubKey == fromAddr {
+				selected = append(selected, u)
+				total += u.Output.Value
+				if total >= value {
+					break
+				}
+			}
+		}
+		if total >= value {
+			break
+		}
+	}
+	if total < value {
+		return nil, fmt.Errorf("余额不足，需 %d 实有 %d", value, total)
+	}
+
+	var inputs []core.TxInput
+	for _, u := range selected {
+		inputs = append(inputs, core.TxInput{
+			TxID:   u.TxID,
+			Vout:   u.Index,
+			PubKey: wallet.PublicKey,
+		})
+	}
+	outputs := []core.TxOutput{
+		{Value: value, ScriptPubKey: to},
+	}
+	change := total - value
+	if change > 0 {
+		outputs = append(outputs, core.TxOutput{Value: change, ScriptPubKey: fromAddr})
+	}
+
+	tx := &core.Transaction{
+		Inputs:     inputs,
+		Outputs:    outputs,
+		IsCoinbase: false,
+	}
+	signHash := core.TxSigningHash(tx)
+	for i := range tx.Inputs {
+		sig, err := wallet.Sign(signHash)
+		if err != nil {
+			return nil, err
+		}
+		tx.Inputs[i].Signature = sig
+	}
+	tx.ID = core.ComputeTxID(tx)
+	return tx, nil
+}
+
+// loadAllBlocks 按高度顺序加载全链
+func loadAllBlocks(store *storage.FileStorage) ([]*core.Block, error) {
+	heights, err := store.ListBlockHeights()
+	if err != nil {
+		return nil, err
+	}
+	var blocks []*core.Block
+	for _, h := range heights {
+		b, err := store.LoadBlock(h)
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, b)
+	}
+	return blocks, nil
 }

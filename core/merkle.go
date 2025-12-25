@@ -46,26 +46,7 @@ func txDigest(tx *Transaction) []byte {
 		return tx.ID
 	}
 
-	var buf bytes.Buffer
-	// 标记 coinbase
-	if tx.IsCoinbase {
-		buf.WriteByte(1)
-	} else {
-		buf.WriteByte(0)
-	}
-
-	for _, in := range tx.Inputs {
-		buf.Write(in.TxID)
-		writeInt(&buf, int64(in.Vout))
-		buf.WriteString(in.ScriptSig)
-	}
-	for _, out := range tx.Outputs {
-		writeInt(&buf, out.Value)
-		buf.WriteString(out.ScriptPubKey)
-	}
-
-	sum := sha256.Sum256(buf.Bytes())
-	return sum[:]
+	return ComputeTxID(tx)
 }
 
 // hashPair 将左右子哈希拼接后再做一次 SHA-256
@@ -80,4 +61,3 @@ func writeInt(buf *bytes.Buffer, v int64) {
 	binary.LittleEndian.PutUint64(b[:], uint64(v))
 	buf.Write(b[:])
 }
-

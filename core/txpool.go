@@ -52,3 +52,10 @@ func (p *TxPool) LoadSnapshot(entries map[string]*Transaction) {
 func (p *TxPool) Size() int {
 	return len(p.pool)
 }
+
+// Clear 移除池内所有交易
+func (p *TxPool) Clear() {
+	for id := range p.pool {
+		delete(p.pool, id)
+	}
+}

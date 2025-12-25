@@ -33,6 +33,34 @@ func GenerateWallet() (*Wallet, error) {
 	}, nil
 }
 
+// FromPrivateHex 通过十六进制私钥恢复钱包
+func FromPrivateHex(privHex string) (*Wallet, error) {
+	b, err := hex.DecodeString(privHex)
+	if err != nil {
+		return nil, err
+	}
+	k := new(big.Int).SetBytes(b)
+	if k.Sign() == 0 || k.Cmp(curve.Params().N) >= 0 {
+		return nil, errors.New("invalid private key scalar")
+	}
+	priv := new(ecdsa.PrivateKey)
+	priv.PublicKey.Curve = curve
+	priv.D = k
+	priv.PublicKey.X, priv.PublicKey.Y = curve.ScalarBaseMult(b)
+	return &Wallet{
+		PrivateKey: priv,
+		PublicKey:  serializePubKey(&priv.PublicKey),
+	}, nil
+}
+
+// PrivateKeyHex 返回私钥的十六进制编码（便于持久化）
+func PrivateKeyHex(w *Wallet) (string, error) {
+	if w == nil || w.PrivateKey == nil {
+		return "", errors.New("wallet is nil")
+	}
+	return hex.EncodeToString(w.PrivateKey.D.Bytes()), nil
+}
+
 // Sign 对数据进行 SHA-256 后签名（ASN.1 编码）
 func (w *Wallet) Sign(data []byte) ([]byte, error) {
 	if w == nil || w.PrivateKey == nil {

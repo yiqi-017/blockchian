@@ -53,8 +53,8 @@ func (s *Syncer) SyncBlocks(store *storage.FileStorage) error {
 		if err != nil {
 			return fmt.Errorf("fetch block %d: %w", h, err)
 		}
-		if err := store.SaveBlock(block); err != nil {
-			return fmt.Errorf("save block %d: %w", h, err)
+		if err := validateAndPersistBlock(store, block); err != nil {
+			return fmt.Errorf("validate block %d: %w", h, err)
 		}
 	}
 	return nil

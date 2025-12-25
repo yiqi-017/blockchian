@@ -17,4 +17,3 @@ type BlockResponse struct {
 type TxPoolResponse struct {
 	Entries map[string]*core.Transaction `json:"entries"`
 }
-
