@@ -101,6 +101,26 @@ func (s *FileStorage) ListBlockHeights() ([]uint64, error) {
 	return heights, nil
 }
 
+// ClearBlocks 删除所有区块文件（用于重组覆盖）
+func (s *FileStorage) ClearBlocks() error {
+	entries, err := os.ReadDir(s.blocksDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		if err := os.Remove(filepath.Join(s.blocksDir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type txPoolPersist struct {
 	Entries map[string]*core.Transaction `json:"entries"`
 }

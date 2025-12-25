@@ -59,3 +59,10 @@ func (p *TxPool) Clear() {
 		delete(p.pool, id)
 	}
 }
+
+// RemoveMany 按 ID 集合删除交易
+func (p *TxPool) RemoveMany(ids []string) {
+	for _, id := range ids {
+		delete(p.pool, id)
+	}
+}

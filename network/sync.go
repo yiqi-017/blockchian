@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 type Syncer struct {
 	Peer   string // 例如 http://127.0.0.1:8081
 	Client *http.Client
+	// fetchBlockFn 注入便于测试；生产使用默认 HTTP 拉取
+	fetchBlockFn func(height uint64) (*core.Block, error)
 }
 
 func NewSyncer(peer string) *Syncer {
@@ -22,6 +25,7 @@ func NewSyncer(peer string) *Syncer {
 		Client: &http.Client{
 			Timeout: 5 * time.Second,
 		},
+		fetchBlockFn: nil,
 	}
 }
 
@@ -48,14 +52,82 @@ func (s *Syncer) SyncBlocks(store *storage.FileStorage) error {
 		return nil // 无需同步
 	}
 
+	// 尝试增量同步；遇到冲突时进行重组
 	for h := start; h <= status.Height; h++ {
-		block, err := s.fetchBlock(h)
+		block, err := s.fetchBlockInternal(h)
 		if err != nil {
 			return fmt.Errorf("fetch block %d: %w", h, err)
 		}
 		if err := validateAndPersistBlock(store, block); err != nil {
+			if err == errConflictBlock {
+				return s.reorgFromPeer(store, status.Height)
+			}
 			return fmt.Errorf("validate block %d: %w", h, err)
 		}
+	}
+	return nil
+}
+
+// reorgFromPeer 拉取对端全链并替换（当对端更长时）
+func (s *Syncer) reorgFromPeer(store *storage.FileStorage, peerTip uint64) error {
+	// 仅当对端链更长时才重组
+	localHeights, err := store.ListBlockHeights()
+	if err != nil {
+		return err
+	}
+	if uint64(len(localHeights)) >= peerTip+1 {
+		return fmt.Errorf("peer conflict but not longer chain")
+	}
+
+	blocks := make([]*core.Block, 0, peerTip+1)
+	for h := uint64(0); h <= peerTip; h++ {
+		b, err := s.fetchBlockInternal(h)
+		if err != nil {
+			return fmt.Errorf("fetch block %d during reorg: %w", h, err)
+		}
+		blocks = append(blocks, b)
+	}
+	if err := validateChain(blocks); err != nil {
+		return fmt.Errorf("peer chain invalid: %w", err)
+	}
+	if err := store.ClearBlocks(); err != nil {
+		return fmt.Errorf("clear local blocks: %w", err)
+	}
+	for _, b := range blocks {
+		if err := store.SaveBlock(b); err != nil {
+			return fmt.Errorf("rewrite block %d: %w", b.Header.Height, err)
+		}
+	}
+	return nil
+}
+
+// validateChain 校验链的连续性、Merkle 和 POW（不做交易验签以简化）
+func validateChain(blocks []*core.Block) error {
+	var prevHash []byte
+	for i, b := range blocks {
+		if b == nil {
+			return fmt.Errorf("nil block at %d", i)
+		}
+		if b.Header.Height != uint64(i) {
+			return fmt.Errorf("height mismatch at %d", i)
+		}
+		if i == 0 {
+			if len(b.Header.PrevHash) != 0 {
+				return fmt.Errorf("genesis prev hash not empty")
+			}
+		} else {
+			if !bytes.Equal(prevHash, b.Header.PrevHash) {
+				return fmt.Errorf("prev hash mismatch at %d", i)
+			}
+		}
+		merkle := core.ComputeMerkleRoot(b.Transactions)
+		if !bytes.Equal(merkle, b.Header.MerkleRoot) {
+			return fmt.Errorf("merkle mismatch at %d", i)
+		}
+		if !core.ValidateBlockPOW(b) {
+			return fmt.Errorf("pow invalid at %d", i)
+		}
+		prevHash = core.HashBlockHeader(&b.Header)
 	}
 	return nil
 }
@@ -96,7 +168,10 @@ func (s *Syncer) fetchStatus() (*StatusResponse, error) {
 }
 
 // fetchBlock 获取指定高度区块
-func (s *Syncer) fetchBlock(height uint64) (*core.Block, error) {
+func (s *Syncer) fetchBlockInternal(height uint64) (*core.Block, error) {
+	if s.fetchBlockFn != nil {
+		return s.fetchBlockFn(height)
+	}
 	resp, err := s.get(fmt.Sprintf("/block?height=%d", height))
 	if err != nil {
 		return nil, err

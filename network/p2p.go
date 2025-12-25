@@ -188,7 +188,7 @@ func validateAndPersistBlock(store *storage.FileStorage, block *core.Block) erro
 		if bytes.Equal(core.HashBlockHeader(&existing.Header), core.HashBlockHeader(&block.Header)) {
 			return nil
 		}
-		return fmt.Errorf("conflict block at height %d", block.Header.Height)
+		return errConflictBlock
 	}
 
 	var prev *core.Block
@@ -236,8 +236,8 @@ func validateAndPersistBlock(store *storage.FileStorage, block *core.Block) erro
 	if err := store.SaveBlock(block); err != nil {
 		return err
 	}
-	// 收到新区块后清空本地交易池，避免重复打包
-	_ = store.SaveTxPool(core.NewTxPool())
+	// 收到新区块后移除已上链交易
+	pruneTxPool(store, block.Transactions)
 	return nil
 }
 
@@ -291,4 +291,37 @@ func applyTxToUTXO(tx *core.Transaction, utxos map[string][]core.UTXO) map[strin
 		})
 	}
 	return utxos
+}
+
+// pruneTxPool 移除交易池中已被区块包含的交易
+func pruneTxPool(store *storage.FileStorage, txs []*core.Transaction) {
+	if len(txs) == 0 {
+		return
+	}
+	pool, err := store.LoadTxPool()
+	if err != nil {
+		return
+	}
+	target := make(map[string]struct{})
+	for _, tx := range txs {
+		if tx == nil {
+			continue
+		}
+		idHex := fmt.Sprintf("%x", core.ComputeTxID(tx))
+		target[idHex] = struct{}{}
+	}
+	// 根据交易池当前条目匹配目标 ID，按键删除
+	var toRemove []string
+	for id, tx := range pool.Snapshot() {
+		idHex := fmt.Sprintf("%x", core.ComputeTxID(tx))
+		if _, ok := target[idHex]; ok {
+			toRemove = append(toRemove, id)
+			continue
+		}
+		if _, ok := target[id]; ok { // 键本身就是 ID
+			toRemove = append(toRemove, id)
+		}
+	}
+	pool.RemoveMany(toRemove)
+	_ = store.SaveTxPool(pool)
 }
