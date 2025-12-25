@@ -18,39 +18,26 @@ type UTXO struct {
 // 返回 map[txidHex][]UTXO
 func BuildUTXOSet(blocks []*Block) map[string][]UTXO {
 	utxos := make(map[string][]UTXO)
-	spent := make(map[string]map[int]bool) // txid -> vout -> spent
 
 	for _, block := range blocks {
 		for txIdx, tx := range block.Transactions {
 			txID := ComputeTxID(tx)
 			txIDHex := crypto.HexEncode(txID)
 
-			// 处理支出
+			// 先处理支出：从 UTXO 集中移除已引用输出
 			if !tx.IsCoinbase {
 				for _, in := range tx.Inputs {
-					inIDHex := crypto.HexEncode(in.TxID)
-					if spent[inIDHex] == nil {
-						spent[inIDHex] = make(map[int]bool)
-					}
-					spent[inIDHex][in.Vout] = true
+					removeUTXO(utxos, in.TxID, in.Vout)
 				}
 			}
 
-			// 收集未花费输出
+			// 添加新输出
 			for outIdx, out := range tx.Outputs {
-				if spent[txIDHex] != nil && spent[txIDHex][outIdx] {
-					continue
-				}
 				utxos[txIDHex] = append(utxos[txIDHex], UTXO{
 					TxID:   txID,
 					Index:  outIdx,
 					Output: out,
 				})
-			}
-
-			// 避免后续交易（同区块）花费本交易输出时遗漏，标记当前 tx 的花费表存在
-			if spent[txIDHex] == nil {
-				spent[txIDHex] = make(map[int]bool)
 			}
 
 			// 确保交易哈希写回，便于后续引用
@@ -113,4 +100,24 @@ func findUTXO(txid []byte, index int, utxos map[string][]UTXO) (UTXO, bool) {
 		}
 	}
 	return UTXO{}, false
+}
+
+// removeUTXO 从集合中删除指定 txid/index 的输出
+func removeUTXO(utxos map[string][]UTXO, txid []byte, index int) {
+	key := crypto.HexEncode(txid)
+	list, ok := utxos[key]
+	if !ok {
+		return
+	}
+	for i, u := range list {
+		if bytes.Equal(u.TxID, txid) && u.Index == index {
+			list = append(list[:i], list[i+1:]...)
+			if len(list) == 0 {
+				delete(utxos, key)
+			} else {
+				utxos[key] = list
+			}
+			return
+		}
+	}
 }

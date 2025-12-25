@@ -29,6 +29,7 @@ func (s *NodeServer) Start() error {
 	mux.HandleFunc("/block", s.handleBlock)
 	mux.HandleFunc("/txpool", s.handleTxPool)
 	mux.HandleFunc("/tx", s.handleSubmitTx)
+	mux.HandleFunc("/balance", s.handleBalance)
 
 	log.Printf("P2P HTTP server listening on %s", s.Addr)
 	return http.ListenAndServe(s.Addr, mux)
@@ -117,6 +118,34 @@ func (s *NodeServer) handleTxPool(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// handleBalance 返回某地址的余额（基于全链 UTXO 扫描）
+func (s *NodeServer) handleBalance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	addr := r.URL.Query().Get("addr")
+	if addr == "" {
+		http.Error(w, "addr is required", http.StatusBadRequest)
+		return
+	}
+	blocks, err := loadAllBlocks(s.Store)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	utxos := core.BuildUTXOSet(blocks)
+	var balance int64
+	for _, list := range utxos {
+		for _, u := range list {
+			if u.Output.ScriptPubKey == addr {
+				balance += u.Output.Value
+			}
+		}
+	}
+	writeJSON(w, BalanceResponse{Address: addr, Balance: balance})
 }
 
 // handleSubmitTx 接收外部提交的简单交易并写入交易池

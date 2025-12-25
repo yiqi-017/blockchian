@@ -17,3 +17,9 @@ type BlockResponse struct {
 type TxPoolResponse struct {
 	Entries map[string]*core.Transaction `json:"entries"`
 }
+
+// BalanceResponse 返回某地址余额
+type BalanceResponse struct {
+	Address string `json:"address"`
+	Balance int64  `json:"balance"`
+}
