@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -59,7 +60,7 @@ func (s *Syncer) SyncBlocks(store *storage.FileStorage) error {
 			return fmt.Errorf("fetch block %d: %w", h, err)
 		}
 		if err := validateAndPersistBlock(store, block); err != nil {
-			if err == errConflictBlock {
+			if errors.Is(err, errConflictBlock) {
 				return s.reorgFromPeer(store, status.Height)
 			}
 			return fmt.Errorf("validate block %d: %w", h, err)

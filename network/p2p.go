@@ -231,11 +231,11 @@ func validateAndPersistBlock(store *storage.FileStorage, block *core.Block) erro
 	if block.Header.Height > 0 {
 		prev, err = store.LoadBlock(block.Header.Height - 1)
 		if err != nil {
-			return fmt.Errorf("missing prev block %d: %w", block.Header.Height-1, err)
+			return fmt.Errorf("%w: missing prev block %d", errConflictBlock, block.Header.Height-1)
 		}
 		expectedPrevHash := core.HashBlockHeader(&prev.Header)
 		if !bytes.Equal(expectedPrevHash, block.Header.PrevHash) {
-			return fmt.Errorf("prev hash mismatch at height %d", block.Header.Height)
+			return fmt.Errorf("%w: prev hash mismatch at height %d", errConflictBlock, block.Header.Height)
 		}
 		if block.Header.Timestamp <= prev.Header.Timestamp {
 			return fmt.Errorf("block timestamp not increasing")

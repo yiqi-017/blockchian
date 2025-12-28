@@ -116,6 +116,8 @@ dir data\n2\blocks
   2) 在 n1 挖块：`go run ./cmd/node -mode mine -node n1 -miner m1 -difficulty 12`。  
   3) 在 n2 挖不同块：`go run ./cmd/node -mode mine -node n2 -miner m2 -difficulty 12`（此时两条高度 1 的冲突链）。  
   4) 启动 n1/n2 serve 互为 peers（参考步骤 2 的 serve 命令）。  
+     启动 n1：go run ./cmd/node -mode serve -node n1 -addr :8080 -peers http://127.0.0.1:8081
+     启动 n2：go run ./cmd/node -mode serve -node n2 -addr :8081 -peers http://127.0.0.1:8080
   5) 在 n1 再挖一块（高度 2）：`go run ./cmd/node -mode mine -node n1 -miner m1 -difficulty 12`，等待同步。  
   6) 查询 n2 `status`：应与 n1 高度一致，区块哈希与 n1 对齐，说明 n2 已重组到更长链。  
 - 手动验证广播防丢：按步骤 2 启动三节点，仅向节点 A POST `/tx`，稍等后在 B/C 的 `/txpool` 能看到同一交易，说明已推送收敛。

@@ -1,11 +1,11 @@
 {
   "Header": {
     "Version": 1,
-    "PrevHash": "AOxgSRZBjV8hJBT1Mf7cqgmJxFfBEIK3LguTAgjCuSQ=",
-    "MerkleRoot": "amELVz14MbzpmGpigcHb8K1LGGz9f7ce7srLCjy/VQI=",
-    "Timestamp": 1766671804,
+    "PrevHash": "AAXJ+RXHGHKn0Aa8LuUcadUd89ReHco5CwEgdtnkiFA=",
+    "MerkleRoot": "2tnfH+1FgldJcJ2vvjH0Hx7bIRSWAjiV51BB+qWbins=",
+    "Timestamp": 1766927363,
     "Difficulty": 12,
-    "Nonce": 2235,
+    "Nonce": 3450,
     "Height": 2
   },
   "Transactions": [
@@ -15,7 +15,40 @@
       "Outputs": [
         {
           "Value": 50,
-          "ScriptPubKey": "ec9bc8bae1b010c6acea4b8a1adb8a9d5c3f12875ba46b878be4bed2a4cdc03cc0e00dfb5c424356615aa6ef3a420401fa99cd61f109e35a740fd42440e7743b"
+          "ScriptPubKey": "c17ccd3da52afa315197280f0702d9dd1e2f5f1ffc8a938a62d34b3fd32b184f76de13bbe36cd86d9513500f2bb1e071a2cf2c40b2220b5d684fb7de8faad12f"
+        }
+      ],
+      "IsCoinbase": true
+    },
+    {
+      "ID": "i5gURzwzmx1OHE5YQ9uqjYYoY0/sGysfItjKIXW9XPI=",
+      "Inputs": [
+        {
+          "TxID": "aM6fQ+z6oR/9SgOSqHshIbJzHnxnFZelHwzIX7v7UJw=",
+          "Vout": 0,
+          "Signature": "MEYCIQCkSTQz29albWNyaZF0arljYMqs60So+rBgfZPq3/NwZQIhANsSjXB7EQeDqG47/seKN/ajMiMcutRzy+htr6g9LQcj",
+          "PubKey": "2Rq3NOVQC3tPe78P7OvQY9sFsVXf24oR86n60rE69Zo6wvsX1hyM0dl88qLGa2J3KAeaNkj/estUriSzc0bOiw=="
+        }
+      ],
+      "Outputs": [
+        {
+          "Value": 5,
+          "ScriptPubKey": "alice"
+        },
+        {
+          "Value": 45,
+          "ScriptPubKey": "d91ab734e5500b7b4f7bbf0fecebd063db05b155dfdb8a11f3a9fad2b13af59a3ac2fb17d61c8cd1d97cf2a2c66b627728079a3648ff7acb54ae24b37346ce8b"
+        }
+      ],
+      "IsCoinbase": false
+    },
+    {
+      "ID": "n1QqJxnzzjVAXcw3RtBHi5reSGdf/Hu4PmhlfqFNiPA=",
+      "Inputs": null,
+      "Outputs": [
+        {
+          "Value": 5,
+          "ScriptPubKey": "alice"
         }
       ],
       "IsCoinbase": true

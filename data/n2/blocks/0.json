@@ -2,10 +2,10 @@
   "Header": {
     "Version": 1,
     "PrevHash": null,
-    "MerkleRoot": "/b1K9eQbfL4LhZxNUuZSUnb7/0BNRpzTTy+g9CVLE+Y=",
-    "Timestamp": 1765811833,
+    "MerkleRoot": "lnzZx6skOjSgtVsnI1Pz9PxxUTOUNt7owZ2vb/jAOsQ=",
+    "Timestamp": 1766922950,
     "Difficulty": 12,
-    "Nonce": 1402,
+    "Nonce": 1966,
     "Height": 0
   },
   "Transactions": [

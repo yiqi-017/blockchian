@@ -1,11 +1,11 @@
 {
   "Header": {
     "Version": 1,
-    "PrevHash": "AAQtsofvTg8oh5rE4OZ9z8dZ8rr5sv9tew1DIULyRQY=",
-    "MerkleRoot": "783fITyImixRYeiWtMu6pSZWOdqx7vtm2twkOU3YTnw=",
-    "Timestamp": 1765811837,
-    "Difficulty": 8,
-    "Nonce": 92,
+    "PrevHash": "AAryazovStMvaAr8zCu1NLzpDY/makcuUwFVVxvKI6E=",
+    "MerkleRoot": "aM6fQ+z6oR/9SgOSqHshIbJzHnxnFZelHwzIX7v7UJw=",
+    "Timestamp": 1766927042,
+    "Difficulty": 12,
+    "Nonce": 893,
     "Height": 1
   },
   "Transactions": [
@@ -15,21 +15,10 @@
       "Outputs": [
         {
           "Value": 50,
-          "ScriptPubKey": "miner1"
+          "ScriptPubKey": "d91ab734e5500b7b4f7bbf0fecebd063db05b155dfdb8a11f3a9fad2b13af59a3ac2fb17d61c8cd1d97cf2a2c66b627728079a3648ff7acb54ae24b37346ce8b"
         }
       ],
       "IsCoinbase": true
-    },
-    {
-      "ID": null,
-      "Inputs": null,
-      "Outputs": [
-        {
-          "Value": 12,
-          "ScriptPubKey": "alice"
-        }
-      ],
-      "IsCoinbase": false
     }
   ]
 }
