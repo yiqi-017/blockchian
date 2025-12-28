@@ -18,7 +18,7 @@ func TestCLIFlagFlow(t *testing.T) {
 	}
 	minerAddr := crypto.PublicKeyHex(w.PublicKey)
 
-	// init
+	// init（创世固定，奖励不归本钱包）
 	if err := Run([]string{
 		"-mode", "init",
 		"-node", "cli1",
@@ -27,6 +27,17 @@ func TestCLIFlagFlow(t *testing.T) {
 		"-difficulty", "4",
 	}); err != nil {
 		t.Fatalf("run init: %v", err)
+	}
+
+	// 先挖一个块获取余额
+	if err := Run([]string{
+		"-mode", "mine",
+		"-node", "cli1",
+		"-data", base,
+		"-miner", minerAddr,
+		"-difficulty", "4",
+	}); err != nil {
+		t.Fatalf("run first mine: %v", err)
 	}
 
 	// tx
@@ -41,7 +52,7 @@ func TestCLIFlagFlow(t *testing.T) {
 		t.Fatalf("run tx: %v", err)
 	}
 
-	// mine
+	// mine 再挖一个块打包交易并清空池子
 	if err := Run([]string{
 		"-mode", "mine",
 		"-node", "cli1",
@@ -60,8 +71,8 @@ func TestCLIFlagFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list heights: %v", err)
 	}
-	if len(heights) != 2 {
-		t.Fatalf("expect 2 blocks after mine, got %d", len(heights))
+	if len(heights) != 3 {
+		t.Fatalf("expect 3 blocks after two mines, got %d", len(heights))
 	}
 	pool, err := store.LoadTxPool()
 	if err != nil {

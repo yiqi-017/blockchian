@@ -91,13 +91,16 @@ func initChain(store *storage.FileStorage, miner string, difficulty uint32) erro
 	if err != nil {
 		return err
 	}
+	// miner/difficulty 对固定创世块无效，保留参数为兼容 CLI
+	_ = miner
+	_ = difficulty
 	if len(heights) > 0 {
 		log.Printf("链已存在，最高高度=%d，跳过创世", heights[len(heights)-1])
 		return nil
 	}
 
-	genesisTx := core.NewCoinbaseTx(miner, 50)
-	block := core.MineBlock(nil, []*core.Transaction{genesisTx}, difficulty)
+	// 使用硬编码的创世块，避免不同时间 init 产生不同 genesis
+	block := core.GenesisBlock()
 
 	if err := store.SaveBlock(block); err != nil {
 		return err
