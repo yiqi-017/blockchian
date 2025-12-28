@@ -1,0 +1,24 @@
+{
+  "Header": {
+    "Version": 1,
+    "PrevHash": null,
+    "MerkleRoot": "lnzZx6skOjSgtVsnI1Pz9PxxUTOUNt7owZ2vb/jAOsQ=",
+    "Timestamp": 1766922950,
+    "Difficulty": 12,
+    "Nonce": 1966,
+    "Height": 0
+  },
+  "Transactions": [
+    {
+      "ID": null,
+      "Inputs": null,
+      "Outputs": [
+        {
+          "Value": 50,
+          "ScriptPubKey": "miner"
+        }
+      ],
+      "IsCoinbase": true
+    }
+  ]
+}

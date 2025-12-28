@@ -122,3 +122,18 @@ dir data\n2\blocks
   6) 查询 n2 `status`：应与 n1 高度一致，区块哈希与 n1 对齐，说明 n2 已重组到更长链。  
 - 手动验证广播防丢：按步骤 2 启动三节点，仅向节点 A POST `/tx`，稍等后在 B/C 的 `/txpool` 能看到同一交易，说明已推送收敛。
 
+### 9. 自动化测试用例说明（主要自写/补充的用例）
+- `cmd/node/cli_flag_test.go`：完整跑 `Run(args)` 的 `init -> mine -> tx -> mine` flag 流程，检查高度递增且挖矿后交易池被清空，覆盖 CLI 入口。
+- `test/command_flow_test.go`：本地存储模拟 `init -> tx -> mine`，构造签名交易、挖块后高度 +1 且池清空，验证链式结构与池读写。
+- `test/crypto_encoding_test.go`：校验 Hash256/DoubleHash256 固定输出、Merkle 根确定性与对输入敏感性、公私钥签名与验签（含篡改失败）。
+- `test/data_structures_test.go`：基础数据结构健全性，包括交易 + Merkle 根、区块头高度/链式挂接、交易池增删。
+- `test/pow_test.go`：小难度挖块应通过 POW 校验，篡改 nonce 后校验失败，覆盖 POW 逻辑。
+- `test/storage_integration_test.go`：两个节点目录隔离（blocks/txpool 互不影响）、读回一致性、不同矿工创世哈希不同，池隔离校验。
+- `network/balance_test.go`：启动 `/balance` handler，先写创世与支付交易，查询 addr1 余额应为 20，覆盖余额接口。
+- `network/block_validation_test.go`：验证未来时间戳区块被拒；对端 genesis 与本地不一致时 `reorgFromPeer` 失败，覆盖区块校验与重组前置条件。
+- `network/network_sync_test.go`：通过 httptest server 把节点 B 从 A 同步区块与交易池，检查区块哈希一致、池大小同步，覆盖同步 API。
+- `network/reorg_test.go`：本地短链遇到对端更长链，`reorgFromPeer` 抓取并覆盖本地，校验取块次数、高度与哈希，覆盖重组逻辑。
+- `network/tx_broadcast_test.go`：向节点 A POST `/tx` 会转发到 peer B，确认 B 的交易池收到，覆盖广播与防丢。
+- `network/txpool_prune_test.go`：落盘包含交易的区块后按交易 ID 剪枝池，池应为空，覆盖打包后清理。
+- `network/server_integration_test.go`：三个 httptest 节点互为 peers，B/C 循环同步，最终区块哈希与交易池与源节点一致，覆盖多端口服务器同步。
+

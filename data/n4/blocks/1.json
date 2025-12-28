@@ -1,0 +1,24 @@
+{
+  "Header": {
+    "Version": 1,
+    "PrevHash": "AAryazovStMvaAr8zCu1NLzpDY/makcuUwFVVxvKI6E=",
+    "MerkleRoot": "B5u0WFKA5eudlCp30PZLxFEiJ8efDGHh4jpF/wtlWys=",
+    "Timestamp": 1766929865,
+    "Difficulty": 12,
+    "Nonce": 2197,
+    "Height": 1
+  },
+  "Transactions": [
+    {
+      "ID": null,
+      "Inputs": null,
+      "Outputs": [
+        {
+          "Value": 50,
+          "ScriptPubKey": "42bd7ef6aebabff269c751ce128f5bc615d1da3598c2b274dc2d287041fad9d36a8c13fd2aec53aff949932142fed7b5089121b8c992fb6ddd5e5db861537533"
+        }
+      ],
+      "IsCoinbase": true
+    }
+  ]
+}
