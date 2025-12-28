@@ -1,5 +1,13 @@
 ## 运行与验证指南（覆盖 mustfinish 5-11）
 
+![GitHub 仓库主页截图](pic/github-pic1.png)
+
+先克隆仓库：
+```powershell
+git clone https://github.com/yiqi-017/blockchian.git
+cd blockchian
+```
+
 以下步骤均在仓库根目录（`blockchain/`）使用 PowerShell 运行。
 
 ### 0. 一键跑自动测试（可选）
@@ -136,4 +144,9 @@ dir data\n2\blocks
 - `network/tx_broadcast_test.go`：向节点 A POST `/tx` 会转发到 peer B，确认 B 的交易池收到，覆盖广播与防丢。
 - `network/txpool_prune_test.go`：落盘包含交易的区块后按交易 ID 剪枝池，池应为空，覆盖打包后清理。
 - `network/server_integration_test.go`：三个 httptest 节点互为 peers，B/C 循环同步，最终区块哈希与交易池与源节点一致，覆盖多端口服务器同步。
+
+### GitHub 历史截图
+![提交历史截图 1](pic/github-history1.png)
+![提交历史截图 2](pic/github-history2.png)
+![提交历史截图 3](pic/github-history3.png)
 
